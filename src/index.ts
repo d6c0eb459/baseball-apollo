@@ -1,42 +1,38 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import { ApolloServer } from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
 
-// A schema is a collection of type definitions (hence "typeDefs")
-// that together define the "shape" of queries that are executed against
-// your data.
-const typeDefs = `
-  type Book {
-    title: String
-    author: String
-  }
+import { typeDefs } from "./schema.js";
+import { resolvers } from "./resolvers.js";
+import { connect, Database } from './database.js';
+import { DataSource } from './datasource.js';
 
-  type Query {
-    books: [Book]
-  }
-`;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const db: Database = await connect(path.join(__dirname, "..", "database.sqlite"));
 
-const books = [
-  {
-    title: 'The Awakening',
-    author: 'Kate Chopin',
-  },
-  {
-    title: 'City of Glass',
-    author: 'Paul Auster',
-  },
-];
+export interface ContextValue {
+    dataSources: {
+        ds: DataSource;
+    };
+}
 
-const resolvers = {
-  Query: {
-    books: () => books,
-  },
-};
-
-const server = new ApolloServer({
+export const server = new ApolloServer<ContextValue>({
   typeDefs,
   resolvers,
 });
 
 const { url } = await startStandaloneServer(server, {
-  listen: { port: 4000 },
+    listen: { port: 4000 },
+    context: async () => {
+        return {
+            dataSources: {
+                ds: new DataSource(db),
+            }
+        };
+    },
 });
+
+console.log(`Now serving at: ${url}`);
