@@ -1,3 +1,7 @@
+/**
+ * Tests for the resolvers module.
+ */
+
 import { ApolloServer } from "@apollo/server";
 import assert from "node:assert";
 
@@ -14,8 +18,8 @@ interface ContextValue {
 }
 
 describe('resolver tests', () => {
-    let ds;
-    let testServer;
+    let ds: DataSource;
+    let testServer: ApolloServer<ContextValue>;
 
     beforeAll(async () => {
         const db = await connect(

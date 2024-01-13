@@ -1,8 +1,14 @@
+/**
+ * Tests for the database module.
+ */
 import { connect, Database } from "./database";
 
 describe('database tests', () => {
     let db: Database;
 
+    /**
+     * Test setup, see database.ts for schema.
+     */
     beforeAll(async () => {
         db = await connect(
             ":memory:",

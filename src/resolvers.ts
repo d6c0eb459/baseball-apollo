@@ -1,25 +1,28 @@
+/**
+ * GraphQL resolvers.
+ */
 import { GraphQLError } from 'graphql';
 
 export const resolvers = {
     Query: {
-        async player(parent, args) {
+        async player(parent: any, args: any) {
             return { "playerId": args.playerId };
         },
 
-        async players(parent, args, contextValue) {
+        async players(parent: any, args: any, contextValue: any) {
             const idents = await contextValue.dataSources.ds.getPlayers(args.firstName, args.lastName);
-            return idents.map((i) => { 
+            return idents.map((i: number) => { 
                 return { "playerId": i };
             });
         },
 
-        async lineup(parent, args, contextValue) {
+        async lineup(parent: any, args: any, contextValue: any) {
             return await contextValue.dataSources.ds.getLineup(args.lineupId);
         }
     },
 
     Mutation: {
-        async lineup(parent, args, contextValue) {
+        async lineup(parent: any, args: any, contextValue: any) {
             let lineupId = args.lineupId;
             if(lineupId == null) {
                 const result = await contextValue.dataSources.ds.createLineup();
@@ -31,7 +34,7 @@ export const resolvers = {
     },
 
     Player: {
-        async profile(parent, args, contextValue) {
+        async profile(parent: any, args: any, contextValue: any) {
             const result = await contextValue.dataSources.ds.getProfile(parent.playerId);
             if(result == null) {
                 throw new GraphQLError(
@@ -41,7 +44,7 @@ export const resolvers = {
             return result;
         },
 
-        async stats(parent, args, contextValue) {
+        async stats(parent: any, args: any, contextValue: any) {
             const result = await contextValue.dataSources.ds.getStats(parent.playerId);
             if(result == null) {
                 throw new GraphQLError(

@@ -1,20 +1,45 @@
+/**
+ * A wrapper around an SQLite database.
+ */
 import sqlite3 from 'sqlite3'
 import { open } from 'sqlite'
 
-interface PlayerProfile {
+/**
+ * Represents a single player.
+ */
+export interface PlayerProfile {
     ident: string;
     name: string;
     country: string;
     year: number;
 }
 
-interface PlayerStats {
+/**
+ * Represents stats for a player or group of players.
+ */
+export interface PlayerStats {
     atBats: number;
     hits: number;
     homeRuns: number;
     strikeouts: number;
     battingAverage: number;
     slugging: number;
+}
+
+/**
+ * Represents a team of players.
+ */
+export interface Lineup {
+    lineupId?: number;
+    pitcher?: number;
+    catcher?: number;
+    firstBase?: number;
+    secondBase?: number;
+    thirdBase?: number;
+    shortstop?: number;
+    leftField?: number;
+    centerField?: number;
+    rightField?: number;
 }
  
 const KNOWN_POSITIONS = new Set([
@@ -29,7 +54,15 @@ const KNOWN_POSITIONS = new Set([
     "rightField",
 ]);
 
-export async function connect(path: string, setup?: (db: sqlite3.Database) => void) {
+type GenericMapping = { [key: string]: any };
+
+/**
+ * Creates a connection to the database.
+ *
+ * @param path  A valid path or the special string ":memory:" for a temporary database.
+ * @param setup An optional function to call after the connection has been made.
+ */
+export async function connect(path: string, setup?: (db: any) => void) {
     const db = await open({
         filename: path,
         driver: sqlite3.Database
@@ -80,15 +113,26 @@ export async function connect(path: string, setup?: (db: sqlite3.Database) => vo
     return new Database(db);
 }
 
+/**
+ * A wrapper around a baseball database.
+ */
 export class Database {
     private db;
     
-    constructor(db) {
+    constructor(db: any) {
       this.db = db;
     }
 
+    /**
+     * Fetch players with matching names.
+     * 
+     * @param firstName The desired first name or a prefix of it.
+     * @param lastName  The desired last name or a prefix of it.
+     *
+     * @returns A list of player identifiers.
+     */
     async getPlayers(firstName: string, lastName: string) : Promise<number[]> {
-        const result = await this.db.all(`
+        const result: GenericMapping[] = await this.db.all(`
             SELECT
             playerId
             FROM People
@@ -96,10 +140,15 @@ export class Database {
             ORDER BY nameFirst,namelast
         `, [`${firstName}%`, `${lastName}%`]);
     
-        return result.map((row) => row["playerID"]);
+        return result.map((row: GenericMapping) => row["playerID"]);
     }
     
-    async getProfiles(idents: string[]) : Promise<PlayerProfile[]> {
+    /**
+     * Fetch players profiles.
+     * 
+     * @param idents A list of player identifiers.
+     */
+    async getProfiles(idents: readonly string[]) : Promise<PlayerProfile[]> {
         const placeholders = (new Array(idents.length).fill("?")).join(",");
         const result = await this.db.all(`
             SELECT
@@ -108,7 +157,7 @@ export class Database {
             WHERE playerId IN (${placeholders})
         `, idents);
     
-        const mapping = {};
+        const mapping: GenericMapping = {};
         for(const row of result) {
             const playerId = row["playerID"];
             mapping[playerId] = {
@@ -127,7 +176,12 @@ export class Database {
         });
     }
 
-    async getStats(idents: string[]) : Promise<PlayerStats[]> {
+    /**
+     * Fetch summary statistics over a player's entire career.
+     * 
+     * @param idents A list of player identifiers.
+     */
+    async getStats(idents: readonly string[]) : Promise<PlayerStats[]> {
         const placeholders = (new Array(idents.length).fill("?")).join(",");
         const result = await this.db.all(`
             SELECT
@@ -143,7 +197,7 @@ export class Database {
             GROUP BY playerId
         `, idents);
     
-        const mapping = {};
+        const mapping: GenericMapping = {};
         for(const row of result) {
             const playerId = row["playerID"];
     
@@ -177,7 +231,12 @@ export class Database {
         });
     }
 
-    async getLineup(lineupId: number) : Promise<number[]> {
+    /**
+     * Fetch a mapping between player and position
+     * 
+     * @param lineupId A lineup identifier.
+     */
+    async getLineup(lineupId: number) : Promise<Lineup> {
         const assignments = await this.db.all(`
             SELECT position,playerId
             FROM Lineups
@@ -186,13 +245,13 @@ export class Database {
             WHERE Lineups.lineupId=?
         `, [lineupId]);
 
-        const result = { "lineupId": lineupId };
-        for(let position of KNOWN_POSITIONS) {
+        const result: any = { "lineupId": lineupId };
+        for(const position of KNOWN_POSITIONS) {
             result[position] = null;
         }
 
-        for(let assignment of assignments) {
-            let position = assignment["position"]
+        for(const assignment of assignments) {
+            const position = assignment["position"]
             if(KNOWN_POSITIONS.has(position)) {
                 if(assignment["playerId"] != null) {
                     result[position] = { playerId: assignment["playerId"] };
@@ -203,15 +262,24 @@ export class Database {
         return result;
     }
 
-    async createLineup() : Promise<number[]> {
-        const result = await this.db.run("INSERT INTO Lineups VALUES(null)");
+    /**
+     * Create a new lineup.
+     */
+    async createLineup() : Promise<Lineup> {
+        const result: GenericMapping = await this.db.run("INSERT INTO Lineups VALUES(null)");
         const lineupId = result["lastID"];
         return this.getLineup(lineupId);
     }
 
-    async updateLineup(lineupId: number, assignments) : Promise<number[]> {
+    /**
+     * Update a lineup by assigning players to positions.
+     *
+     * @param lineupId      A lineup identifier.
+     * @param assignments   A mapping from known positions to player identifiers.
+     */
+    async updateLineup(lineupId: number, assignments: any) : Promise<Lineup> {
         const data = [];
-        for(let position of KNOWN_POSITIONS) {
+        for(const position of KNOWN_POSITIONS) {
             if(assignments[position] !== undefined) {
                 const query = assignments[position];
 
